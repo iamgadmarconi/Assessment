@@ -212,7 +212,7 @@ function solutions = departureSolutions()
     filteredNEOs = filterAsteroids(path, smaRange, eMax, iMax);
 
     % 3. Search Range & Step (days)
-    range = date_arr - date_dep;  % e.g. 700 days if date_arr-date_dep=700
+    range = date_arr - date_dep;
     step  = 20;   % 20-day increments
 
     % 4. Prepare a cell array to store each asteroid’s solutions

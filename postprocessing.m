@@ -180,7 +180,10 @@ end
 
 
 function filtered = filterByLayover(mergedTable, layover_min, layover_max)
-    filtered = ephdata.filter_data(mergedTable, mergedTable.Layover > layover_min & mergedTable.Layover < layover_max);
+    filtered = ephdata.filter_data(mergedTable, mergedTable.Layover > layover_min ...
+                                 & mergedTable.Layover < layover_max ...
+                                 & mergedTable.EarthDepartureEpoch >= 12054 ...
+                                 & mergedTable.EarthArrivalEpoch <= 13878);
     filtered = sortrows(filtered, 'AstID');
     fprintf('Filtered table has %d matching round-trip entries.\n', height(filtered));
 end
