@@ -246,6 +246,8 @@ function mergedTable = mergeDepartureAndReturn(departSol, roundTripSol)
     if ~isempty(mergedTable)
         mergedTable.Layover = mergedTable.AsteroidDepartureEpoch - mergedTable.AsteroidArrivalEpoch;
         mergedTable = sortrows(mergedTable, 'Layover');
+        mergedTable.TotalTOF = mergedTable.DepartureTOF + mergedTable.ReturnTOF;
+        mergedTable.DVTotal = mergedTable.DepartureDV + mergedTable.ReturnDV;
     end
 
     fprintf('Merged table has %d matching round-trip entries.\n', height(mergedTable));
