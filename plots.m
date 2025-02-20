@@ -12,16 +12,11 @@ plotDepAndRetPorkchop(filtered, 1);
 
 function plotDepAndRetPorkchop(table, entry_idx)
     entry = table(entry_idx,:);
-    earliest_earth_departure = min(table.EarthDepartureEpoch);
-    latest_asteroid_arrival = max(table.AsteroidArrivalEpoch);
-    range_departure = latest_asteroid_arrival - earliest_earth_departure;
+    range_departure = max(table.DepartureTOF);
+    range_return = max(table.ReturnTOF);
 
-    earliest_asteroid_departure = min(table.AsteroidDepartureEpoch);
-    latest_earth_arrival = max(table.EarthArrivalEpoch);
-    range_return = latest_earth_arrival - earliest_asteroid_departure;
-
-    lambertsolver.plotPorkChop(earliest_earth_departure - 100, latest_asteroid_arrival + 100, 1, entry.AstID, range_departure, 3, 'Sun')
-    lambertsolver.plotPorkChop(earliest_asteroid_departure - 100, latest_earth_arrival + 100, 1, entry.AstID, range_return, 3, 'Sun')
+    lambertsolver.plotPorkChop(entry.EarthDepartureEpoch, entry.AsteroidArrivalEpoch, 3, entry.AstID, range_departure, 1, 'Sun')
+    lambertsolver.plotPorkChop(entry.AsteroidDepartureEpoch, entry.EarthArrivalEpoch, entry.AstID, 3, range_return, 1, 'Sun')
 
     plotRoundTrip(entry, 1000);
 
