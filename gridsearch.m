@@ -70,7 +70,7 @@ function roundTripSolutions = arrivalSolutions(solutions)
     end
 
     finalMissionDate = date2mjd2000([2037 12 31 0 0 0]);
-    step  = 5;  % smaller step for the return search?
+    step  = 5;  % smaller step for the return search
 
     % Pre-allocate a cell array where each element will hold
     % the solutions found for that single inbound solution

@@ -5,6 +5,7 @@ classdef lambertsolver
 
     methods (Static)
         
+        
         function plotPorkChop(date_dep, date_arr, dep_body_idx, arr_body_idx, range, step, central_body)
             % plotPorkChop - Plots the pork-chop ∆V surface as contour.
             % 
@@ -23,6 +24,8 @@ classdef lambertsolver
             ylabel('Arrival Date (MJD2000)');
             title('\DeltaV Pork-Chop Plot');
         end
+
+
         function [vInfShortMat, dvRendShortMat, ...
             vInfLongMat,  dvRendLongMat, ...
             DepartureGrid, ArrivalGrid, ...

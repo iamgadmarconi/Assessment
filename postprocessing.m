@@ -10,14 +10,7 @@ load('roundTripSolutions.mat');
 % load('departureSolutions.mat');
 
 
-ast_name = '       (2000 SG344)'; % roundTrips(1).AstName;
-dep_epoch = roundTrips(1).DepartEarth;
-arr_epoch = roundTrips(1).ArriveAst;
-
-porkChopForArrivalSolution(dep_epoch, arr_epoch, ast_name);
-porkChopForDepartureSolution(dep_epoch, arr_epoch, ast_name);
-
-function porkChopForArrivalSolution(dep_epoch, arr_epoch, asteroid_name)
+3function porkChopForArrivalSolution(dep_epoch, arr_epoch, asteroid_name)
     path = 'C:\Users\gadma\Documents\MATLAB\ATATD-Toolbox\All_NEOS_ATA&TD_2018_2019.csv';
     neo_data = ephdata.read_data(path);
 
