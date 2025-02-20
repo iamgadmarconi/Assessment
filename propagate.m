@@ -1,4 +1,4 @@
-function [times, rSC] = propagateTrajectory(r0, v0, t0, t1, muSun, nSteps)
+function [times, rSC] = propagate(r0, v0, t0, t1, muSun, nSteps)
     % PROPAGATETRAJECTORY
     %   Integrates a 2-body trajectory about the Sun from time t0 to t1.
     % 

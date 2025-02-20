@@ -22,10 +22,17 @@ load('DepartureSolutions.mat','solutions');     % Earth->Ast
 load('RoundTripSolutions.mat','roundTrips');    % full round trip
 
 mergedTable = mergeDepartureAndReturn(solutions, roundTrips);
+filteredTable = filterByLayover(mergedTable, 60, 180);
 
-entry = mergedTable(1,:);
+entry = filteredTable(1,:);
 
 plotRoundTrip(entry, 1000)
+
+
+
+function filtered = filterByLayover(mergedTable, layover_min, layover_max)
+    filtered = ephdata.filter_data(mergedTable, mergedTable.Layover > layover_min & mergedTable.Layover < layover_max);
+end
 
 
 function mergedTable = mergeDepartureAndReturn(departSol, roundTripSol)
@@ -94,7 +101,8 @@ function mergedTable = mergeDepartureAndReturn(departSol, roundTripSol)
 
     % 6) Sort by outbound departure for convenience
     if ~isempty(mergedTable)
-        mergedTable = sortrows(mergedTable, 'AstID');
+        mergedTable.Layover = mergedTable.AsteroidDepartureEpoch - mergedTable.AsteroidArrivalEpoch;
+        mergedTable = sortrows(mergedTable, 'Layover');
     end
 
     fprintf('Merged table has %d matching round-trip entries.\n', height(mergedTable));
@@ -102,32 +110,22 @@ end
 
 
 function plotRoundTrip(oneRow, nSteps)
-% PLOTROUNDTRIPFROMTABLE
-%   Plots the Earth->Asteroid->Earth trajectory using a *single row*
-%   from your merged solutions table. That row contains columns:
-%
-%     OutDeparture, OutArrival, OutArcType, OutVInf, ...
-%     OutV1DepartVec, OutV2ArriveVec, ...
-%     RetDepartEarth, RetArriveAst, RetArcType, ...
-%     RetV1DepartVec, RetV2ArriveVec, ...
-%     AstID, AstName, (etc.)
-%
-%   The function does exactly what your previous plotRoundTrip did,
-%   but accesses the data from the table row.
+    % PLOTROUNDTRIP
+    %   Plots Earth->Asteroid then Asteroid->Earth in two separate figures,
+    %   adding markers for departure/arrival points.
 
     figure; hold on;
 
-    muSun = getAstroConstants('Sun', 'mu');
+    muSun = getAstroConstants('Sun','mu');
 
-    %% 1) Outbound Leg (Earth->Asteroid)
+    %% === Outbound Leg (Earth->Asteroid) ===
     t0_out = oneRow.EarthDepartureEpoch;
     t1_out = oneRow.AsteroidArrivalEpoch;
 
     % Earth at departure
     [rE0, ~] = EphSS_car(3, t0_out);
-    vSC0_out = oneRow.V1DepartVecEarth;  % The Lambert departure velocity in heliocentric frame
+    vSC0_out = oneRow.V1DepartVecEarth;  % Lambert velocity in heliocentric
 
-    % Propagate
     [timeOut, rSC_out] = propagate(rE0, vSC0_out, t0_out, t1_out, muSun, nSteps);
 
     % Earth & asteroid positions for each sample time
@@ -141,29 +139,57 @@ function plotRoundTrip(oneRow, nSteps)
         rAst_out(i,:)   = rA;
     end
 
-    plot3(rSC_out(:,1), rSC_out(:,2), rSC_out(:,3), 'r--','LineWidth',2);
+    % (1) Plot the main trajectories
+    plot3(rSC_out(:,1), rSC_out(:,2), rSC_out(:,3), '--k','LineWidth',1.5);
     plot3(rEarth_out(:,1), rEarth_out(:,2), rEarth_out(:,3), 'b','LineWidth',1);
-    plot3(rAst_out(:,1),   rAst_out(:,2),   rAst_out(:,3),   'g','LineWidth',1);
-    
-    % Plot Sun
+    plot3(rAst_out(:,1),   rAst_out(:,2),   rAst_out(:,3),   'r','LineWidth',1);
+
+    % (2) Add markers for departure & arrival on spacecraft track
+    % The spacecraft's first point is departure, last point is arrival
+    % plot3(rSC_out(1,1), rSC_out(1,2), rSC_out(1,3), '^k','MarkerSize',8,'MarkerFaceColor','k',...
+    %       'DisplayName','SC Depart');
+    % plot3(rSC_out(end,1), rSC_out(end,2), rSC_out(end,3), 'vk','MarkerSize',8,'MarkerFaceColor','k',...
+    %       'DisplayName','SC Arrive');
+
+    % Earth departure (circle, outline + fill both blue):
+    plot3(rEarth_out(1,1), rEarth_out(1,2), rEarth_out(1,3), ...
+        'ob','MarkerSize',6,'MarkerFaceColor','b',...
+        'DisplayName','Earth@Depart');
+
+    % Ast departure (circle, blue outline, red fill):
+    plot3(rAst_out(1,1), rAst_out(1,2), rAst_out(1,3), ...
+        'sr','MarkerSize',6,'MarkerFaceColor','r',...
+        'DisplayName','Ast@Depart');
+
+    % Earth arrival (square, red outline, blue fill):
+    plot3(rEarth_out(end,1), rEarth_out(end,2), rEarth_out(end,3), ...
+        '^','MarkerSize',6,'MarkerFaceColor','b',...
+        'DisplayName','Earth@Arrive');
+
+    % Ast arrival (square, red outline + fill):
+    plot3(rAst_out(end,1), rAst_out(end,2), rAst_out(end,3), ...
+        'v','MarkerSize',6,'MarkerFaceColor','r',...
+        'DisplayName','Ast@Arrive');
+
+
+    % (4) Plot the Sun
     plot3(0,0,0,'yo','MarkerFaceColor','y','MarkerSize',8);
 
     axis equal; grid on;
     xlabel('X [km]'); ylabel('Y [km]'); zlabel('Z [km]');
-
     missionTitle = ['Departure Leg: ' strtrim(oneRow.AstName{1}) ' (Earth->Ast)'];
-
     title(missionTitle);
 
-    legend('Outbound SC','Earth','Asteroid','Sun','Location','best');
+    legend('Outbound SC','Earth','Asteroid','Earth@Depart','Ast@Depart','Earth@Arrive','Ast@Arrive','Sun','Location','best');
 
-    %% 2) Return Leg (Asteroid->Earth)
+    %% === Return Leg (Asteroid->Earth) ===
+    figure; hold on;
+
     t0_ret = oneRow.AsteroidDepartureEpoch;
     t1_ret = oneRow.EarthArrivalEpoch;
 
-    % Asteroid at departure
     [rAst0, ~] = EphSS_car(oneRow.AstID, t0_ret);
-    vSC0_ret   = oneRow.V1DepartVecAsteroid;  % departure velocity from asteroid in heliocentric
+    vSC0_ret   = oneRow.V1DepartVecAsteroid;
 
     [timeRet, rSC_ret] = propagate(rAst0, vSC0_ret, t0_ret, t1_ret, muSun, nSteps);
 
@@ -177,22 +203,36 @@ function plotRoundTrip(oneRow, nSteps)
         rAst_ret(i,:)   = rA;
     end
 
-    figure; hold on;
-
-    plot3(rSC_ret(:,1), rSC_ret(:,2), rSC_ret(:,3), 'r--','LineWidth',2);
+    plot3(rSC_ret(:,1), rSC_ret(:,2), rSC_ret(:,3), '--k','LineWidth',1.5);
     plot3(rEarth_ret(:,1), rEarth_ret(:,2), rEarth_ret(:,3), 'b','LineWidth',1);
-    plot3(rAst_ret(:,1),   rAst_ret(:,2),   rAst_ret(:,3),   'g','LineWidth',1);
+    plot3(rAst_ret(:,1),   rAst_ret(:,2),   rAst_ret(:,3),   'r','LineWidth',1);
 
-    % Plot Sun
+    % Mark departure & arrival on the return leg
+    % plot3(rSC_ret(1,1), rSC_ret(1,2), rSC_ret(1,3), '^k','MarkerSize',8,'MarkerFaceColor','k',...
+    %       'DisplayName','SC Depart');
+    % plot3(rSC_ret(end,1), rSC_ret(end,2), rSC_ret(end,3), 'vk','MarkerSize',8,'MarkerFaceColor','k',...
+    %       'DisplayName','SC Arrive');
+
+    % Mark asteroid at departure, Earth at arrival
+    plot3(rAst_ret(1,1), rAst_ret(1,2), rAst_ret(1,3), 'sr','MarkerSize',6,'MarkerFaceColor','r',...
+        'DisplayName','Ast@Depart');
+    plot3(rEarth_ret(1,1), rEarth_ret(1,2), rEarth_ret(1,3), 'ob','MarkerSize',6,'MarkerFaceColor','b',...
+        'DisplayName','Earth@Depart');
+
+    plot3(rAst_ret(end,1), rAst_ret(end,2), rAst_ret(end,3), 'v','MarkerSize',6,'MarkerFaceColor','r',...
+        'DisplayName','Ast@Arrive');
+
+    plot3(rEarth_ret(end,1), rEarth_ret(end,2), rEarth_ret(end,3), '^','MarkerSize',6,'MarkerFaceColor','b',...
+        'DisplayName','Earth@Arrive');
+
+    % Sun
     plot3(0,0,0,'yo','MarkerFaceColor','y','MarkerSize',8);
 
     axis equal; grid on;
     xlabel('X [km]'); ylabel('Y [km]'); zlabel('Z [km]');
-
-    missionTitle = ['Return Leg:' strtrim(oneRow.AstName{1}) '(Ast->Earth)'];
-
+    missionTitle = ['Return Leg:' strtrim(oneRow.AstName{1}) ' (Ast->Earth)'];
     title(missionTitle);
 
-    legend('Return SC','Earth','Asteroid','Sun','Location','best');
+    legend('Return SC','Earth','Asteroid','Ast@Depart','Earth@Depart','Ast@Arrive','Earth@Arrive','Sun','Location','best');
 end
 
