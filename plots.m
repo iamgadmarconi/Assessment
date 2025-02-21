@@ -26,7 +26,6 @@ function plotRoundTrip(oneRow, nSteps)
     % Create one figure with two subplots (top: Departure Leg, bottom: Return Leg)
     figure;
     
-    %% === Departure Leg (Earth->Asteroid) ===
     subplot(2,1,1); hold on;
     
     muSun = getAstroConstants('Sun','mu');
@@ -75,9 +74,7 @@ function plotRoundTrip(oneRow, nSteps)
     title(missionTitle);
     legend('Outbound SC','Earth','Asteroid','Earth@Depart',...
         'Ast@Depart','Earth@Arrive','Ast@Arrive','Sun','Location','best');
-    
-    
-    %% === Return Leg (Asteroid->Earth) ===
+
     subplot(2,1,2); hold on;
     
     t0_ret = oneRow.AsteroidDepartureEpoch;

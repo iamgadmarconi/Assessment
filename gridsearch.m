@@ -14,13 +14,13 @@ mainRoundTrip();
 
 
 function mainRoundTrip()
-    % 1) Earth->Ast solutions
+    % Earth->Ast solutions
     if isempty(gcp('nocreate'))
         parpool('local', 6); 
     end
     outboundSolutions = departureSolutions();  % writes to 'AsteroidSolutions.mat'
 
-    % 2) If we want the round-trip
+    % If we want the round-trip
     if ~isempty(outboundSolutions)
         roundTrips = arrivalSolutions(outboundSolutions);
 
@@ -46,8 +46,6 @@ function roundTripSolutions = arrivalSolutions(solutions)
     %
     %   Stores the short/long arc velocity vectors in the output struct.
 
-    % We'll store round-trip solutions in a struct array, but using a cell array
-    % to collect partial results in parallel.
     roundTripSolutions = struct('AstName',       {}, ...
                                 'AstID',         {}, ...
                                 'DepartEarth',   {}, ...
@@ -77,7 +75,7 @@ function roundTripSolutions = arrivalSolutions(solutions)
     nSol = length(solutions);
     solutionsCell = cell(nSol,1);
 
-    % PARFOR loop over each feasible Earth->Asteroid solution
+    % loop over each feasible Earth->Asteroid solution
     parfor iSol = 1:nSol
         astID      = solutions(iSol).AstID;
         arrivalAst = solutions(iSol).Arrival; % MJD2000 day we arrive at the asteroid
@@ -95,7 +93,7 @@ function roundTripSolutions = arrivalSolutions(solutions)
         % and latest arrival is finalMissionDate
         range = finalMissionDate - arrivalAst;
 
-        % 1) We call the updated solver for the second leg: ASTEROID -> EARTH
+        % call the solver for the second leg: ASTEROID -> EARTH
         [vInfShortRet, dvShortRet, vInfLongRet, dvLongRet, ...
         DepGridRet, ArrGridRet, ...
         v1ShortCell, v2ShortCell, v1LongCell, v2LongCell] = ...
@@ -106,11 +104,11 @@ function roundTripSolutions = arrivalSolutions(solutions)
                 3,                 ...  % arrive at Earth
                 range, step, 'sun');
 
-        % 2) Constraints: dvAstDep < 0.5, vInfEarth < 1.5
+        % Constraints: dvAstDep < 0.5, vInfEarth < 1.5
         returnShortMask = (vInfShortRet < 1.5) & (dvShortRet < 0.5);
         returnLongMask  = (vInfLongRet  < 1.5) & (dvLongRet  < 0.5);
 
-        % 3) Short-Arc Feasible Solutions
+        % Short-Arc Feasible Solutions
         [iD_rs, iA_rs] = find(returnShortMask);
         for k = 1:numel(iD_rs)
             idxD = iD_rs(k);
@@ -145,7 +143,7 @@ function roundTripSolutions = arrivalSolutions(solutions)
             localSolutions = [localSolutions; entry];
         end
 
-        % 4) Long-Arc Feasible Solutions
+        % Long-Arc Feasible Solutions
         [iD_rl, iA_rl] = find(returnLongMask);
         for k = 1:numel(iD_rl)
             idxD = iD_rl(k);
@@ -195,11 +193,11 @@ function solutions = departureSolutions()
     % departureSolutions  Finds Earth->NEO transfer solutions in parallel,
     % storing velocity vectors from the updated findTransferSolutions.
 
-    % 1. Paths & Data
+    % Paths & Data
     path = 'C:\Users\gadma\Documents\MATLAB\ATATD-Toolbox\All_NEOS_ATA&TD_2018_2019.csv';
     neo_data = ephdata.read_data(path);
 
-    % 2. Define date window (MJD2000)
+    % Define date window (MJD2000)
     date_dep = date2mjd2000([2033 01 01 0 0 0]);  % earliest Earth departure
     date_arr = date2mjd2000([2037 12 31 0 0 0]);  % must arrive asteroid before end-2037
 
@@ -211,15 +209,15 @@ function solutions = departureSolutions()
     % Load & filter the NEOs
     filteredNEOs = filterAsteroids(path, smaRange, eMax, iMax);
 
-    % 3. Search Range & Step (days)
-    range = date_arr - date_dep;
+    % Search Range & Step (days)
+    range = date_arr - date_dep; % 700; % days
     step  = 20;   % 20-day increments
 
-    % 4. Prepare a cell array to store each asteroid’s solutions
+    % Prepare a cell array to store each asteroid’s solutions
     total_asteroids = height(filteredNEOs);
     solutionsCell = cell(total_asteroids,1);
 
-    % 5. Parallel loop over the filtered asteroids
+    % Parallel loop over the filtered asteroids
     parfor iAst = 1:total_asteroids
         % Local array that will collect feasible solutions for this asteroid
         localSolutions = [];
@@ -238,7 +236,7 @@ function solutions = departureSolutions()
 
         fprintf('\nExamining asteroid: %s\n Remaining: (%d/%d)\n', thisName, iAst, total_asteroids);
 
-        % 6. Call the updated lambert-solver-based function that now
+        % Call the lambert-solver-based function that now
         %    also returns velocity vectors in cell arrays:
         [vInfShort, dvShort, vInfLong, dvLong, ...
          DepGrid, ArrGrid, ...
@@ -248,13 +246,13 @@ function solutions = departureSolutions()
                 3, astID, ...              % Earth->asteroid
                 range, step, 'sun');
 
-        % 7. Apply constraints: vInf < 1.5, dvRendez < 0.5
+        % Apply constraints: vInf < 1.5, dvRendez < 0.5
         shortMask = (vInfShort < 1.5) & (dvShort < 0.5);
         longMask  = (vInfLong  < 1.5) & (dvLong  < 0.5);
 
         foundAny = false;
 
-        % --- Short Arc Feasible Solutions
+        % Short Arc Feasible Solutions
         [iD_s, iA_s] = find(shortMask);
         for k = 1:numel(iD_s)
             iD = iD_s(k);
@@ -279,7 +277,7 @@ function solutions = departureSolutions()
             foundAny = true;
         end
 
-        % --- Long Arc Feasible Solutions
+        % Long Arc Feasible Solutions
         [iD_l, iA_l] = find(longMask);
         for k = 1:numel(iD_l)
             iD = iD_l(k);
@@ -313,10 +311,10 @@ function solutions = departureSolutions()
         solutionsCell{iAst} = localSolutions;
     end
 
-    % 8. Merge all sub-results into one struct array
+    % Merge all sub-results into one struct array
     solutions = vertcat(solutionsCell{:});
 
-    % 9. Show final solutions or save them
+    % Show final solutions or save them
     disp('---- SUMMARY OF ALL FEASIBLE EARTH->ASTEROID SOLUTIONS ----');
     if ~isempty(solutions)
         solutionsTable = struct2table(solutions);
@@ -326,7 +324,7 @@ function solutions = departureSolutions()
         disp('No feasible solutions found with the given constraints!');
     end
 
-    % 10. Save to a .mat for subsequent steps
+    % Save to a .mat for subsequent steps
     save('DepartureSolutions.mat','solutions');
 end
 
@@ -343,26 +341,22 @@ function filteredTbl = filterAsteroids(csvPath, smaRange, eMax, iMax)
     %  OUTPUT:
     %   filteredTbl - Table with only those asteroids that fit the specified orbital constraints.
 
-    % 1) Read the CSV data into a table
+    % Read the CSV data into a table
     dataTbl = ephdata.read_data(csvPath);
 
-    % 2) (Optional) Clean object names for clarity
+    % Clean object names for clarity
     % [~, dataTbl] = ephdata.clean_object_names(dataTbl);
 
-    % 3) Select only the columns we actually need
-    %    (change column names to match exactly what's in your CSV)
+    % Select only the columns we actually need
     columnsNeeded = {'full_name','a','e','i'};
     subsetTbl = ephdata.select_columns(dataTbl, columnsNeeded);
 
-    % 4) Build a logical mask to filter the table
-    %    For example, a in [smaRange(1), smaRange(2)],
-    %                   e in [0, eMax],
-    %                   i in [0, iMax] (assuming i is in degrees)
+    % Build a logical mask to filter the table
     condition = (subsetTbl.a >= smaRange(1)) & (subsetTbl.a <= smaRange(2)) & ...
                 (subsetTbl.e <= eMax) & ...
                 (subsetTbl.i <= iMax);
 
-    % 5) Use ephdata.filter_data to filter the subset
+    % Use ephdata.filter_data to filter the subset
     filteredTbl = ephdata.filter_data(subsetTbl, condition);
 
     % Print summary

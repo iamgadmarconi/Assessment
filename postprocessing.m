@@ -34,21 +34,10 @@ open(pdfFile);  % automatically opens in system PDF viewer (on most OS)
 
 
 function pdfPath = generatePDFReport(entry, filteredTable)
-    % generatePDFReport Generate a PDF report, compatible with older MATLAB versions
-    %
-    %  pdfPath = generatePDFReport(entry, filteredTable)
-    %
-    %  This function:
-    %   1) Creates a title page: "(AsteroidName, dd/mm/yyyy)"
-    %   2) Saves a trajectory figure to PNG and embeds it
-    %   3) Creates a multi-page DOM table for 'filteredTable'
-    %      using basic classes (Table, TableRow, TableEntry).
 
-    % Make sure the MATLAB Report Generator is installed
     import mlreportgen.report.*    % For Report, TitlePage, Chapter, etc.
     import mlreportgen.dom.*       % For Table, TableRow, TableEntry, Image, etc.
 
-    % --- Convert MJD2000 -> MATLAB datenum -> display strings ---
     MJD2000_OFFSET     = 730486;  % 1-Jan-2000 = datenum(2000,1,1) = 730486
     depEpochMatlab     = entry.EarthDepartureEpoch + MJD2000_OFFSET;
     departureDateSlash = datestr(depEpochMatlab, 'dd/mm/yyyy');   % displayed in PDF
@@ -58,30 +47,22 @@ function pdfPath = generatePDFReport(entry, filteredTable)
     astName  = strtrim(entry.AstName{1});
     pdfTitle = 'Round-Trip Mission Report';
 
-    % --- Construct a filename without illegal chars ---
     pdfFilename = sprintf('%s_%s', astName, departureDateFile);
-    % Replace any non-word or special chars with underscore
     pdfFilename = regexprep(pdfFilename, '[^\w\-\(\) ]', '_');  
 
     % Create the report with the given filename, in PDF format
     rpt = Report(pdfFilename, 'pdf');
     rpt.Layout.Landscape = true;
 
-    %% Title Page
     tp = TitlePage();
     tp.Title    = Text(pdfTitle);
     tp.Title.Style = {Bold(true), FontSize('24pt')};
     add(rpt, tp);
-    %% Chapter for details
+
     ch = Chapter('Title', 'Mission Details');
 
-
-    % ---------------------------
-    % 2) Build a multi-page table
-    % ---------------------------
     add(ch, Text('Filtered Round-Trip Table:'));
 
-    % Create a DOM Table object
     myTable = Table();
     myTable.Border       = 'solid';
     myTable.BorderWidth  = '1pt';
@@ -90,10 +71,6 @@ function pdfPath = generatePDFReport(entry, filteredTable)
     myTable.Width        = '100%';
     myTable.TableEntriesStyle = {FontSize('8pt')};  % Decrease font size for many columns
 
-    % Allow splitting across pages
-    % (If your older version doesn't have this property, comment out)
-    % Add a header row
-    % Get variable names from the filtered table
     varNames  = filteredTable.Properties.VariableNames;
     exclusions = {'V1DepartVecEarth', 'V2ArriveVecAsteroid', 'V1DepartVecAsteroid', 'V2ArriveVecEarth'};
     
@@ -139,7 +116,6 @@ end
 
 
 function [header, body] = createTableData(T)
-    % Convert your MATLAB table to the header/body for a FormalTable
     varNames = T.Properties.VariableNames;
     numCols  = length(varNames);
     numRows  = height(T);
@@ -198,25 +174,17 @@ function mergedTable = mergeDepartureAndReturn(departSol, roundTripSol)
         return;
     end
 
-    % 1) Convert the struct arrays to tables
     depTab = struct2table(departSol, 'AsArray', true);
     retTab = struct2table(roundTripSol, 'AsArray', true);
 
-    % 2) Rename columns in depTab to clearly indicate "Outbound" data
-    %    (so they don't clash with the return columns)
     depTab = renamevars(depTab, ...
         {'Departure','Arrival','ArcType','vInf','dvRendez','TOF_days','v1DepartVec','v2ArriveVec'}, ...
         {'EarthDepartureEpoch','AsteroidArrivalEpoch','DepartureArcType','DepartureVInf','DepartureDV','DepartureTOF','V1DepartVecEarth','V2ArriveVecAsteroid'});
 
-    % 3) Rename columns in retTab to clearly indicate "Return" data
-    %    (some fields in roundTripSolutions have similar names)
     retTab = renamevars(retTab, ...
         {'DepartEarth','ArriveAst','DepartAst','ArriveEarth','ArcTypeReturn','vInfReturn','dvAstDep','TOF_daysReturn','v1DepartVec','v2ArriveVec'}, ...
         {'EarthDepartureEpoch','AsteroidArrivalEpoch','AsteroidDepartureEpoch','EarthArrivalEpoch','ReturnArcType','ReturnVInf','ReturnDV','ReturnTOF','V1DepartVecAsteroid','V2ArriveVecEarth'});
 
-    % 4) Create "key" columns in both tables
-    %    We'll match by (AstID, OutDeparture=RetDepartEarth, OutArrival=RetArriveAst),
-    %    rounding to integer days so they match exactly in join
     depTab.KeyAstID = depTab.AstID;  % same ID field, just clarifying the usage
     depTab.DepEpoch = round(depTab.EarthDepartureEpoch);
     depTab.ArrEpoch = round(depTab.AsteroidArrivalEpoch);
@@ -225,8 +193,6 @@ function mergedTable = mergeDepartureAndReturn(departSol, roundTripSol)
     retTab.DepEpoch = round(retTab.EarthDepartureEpoch);
     retTab.ArrEpoch = round(retTab.AsteroidArrivalEpoch);
 
-    % 5) Perform an inner join using these keys
-    %    'MergeKeys' => merges them into single columns
     mergedTable = innerjoin(depTab, retTab, ...
         'LeftKeys',  {'KeyAstID','DepEpoch','ArrEpoch'}, ...
         'RightKeys', {'KeyAstID','DepEpoch','ArrEpoch'}, ...
@@ -238,11 +204,6 @@ function mergedTable = mergeDepartureAndReturn(departSol, roundTripSol)
             'AsteroidDepartureEpoch','EarthArrivalEpoch','ReturnArcType','ReturnVInf','ReturnDV','ReturnTOF','V1DepartVecAsteroid','V2ArriveVecEarth'
         });
 
-
-    % The resulting table will have all columns from depTab and retTab
-    % for rows that matched on the 3 key columns.
-
-    % 6) Sort by outbound departure for convenience
     if ~isempty(mergedTable)
         mergedTable.Layover = mergedTable.AsteroidDepartureEpoch - mergedTable.AsteroidArrivalEpoch;
         mergedTable = sortrows(mergedTable, 'Layover');

@@ -1,17 +1,9 @@
 classdef lambertsolver
-    % lambertsolver
-    % A class containing static methods for Lambert arcs, 
-    % pork-chop plots, and related orbital mechanics utilities.
 
     methods (Static)
         
         
         function plotPorkChop(date_dep, date_arr, dep_body_idx, arr_body_idx, range, step, central_body)
-            % plotPorkChop - Plots the pork-chop ∆V surface as contour.
-            % 
-            %   lambertsolver.plotPorkChop(date_dep, date_arr, 
-            %                              dep_body_idx, arr_body_idx, 
-            %                              range, step, central_body)
 
             [DV_solutions, DepartureGrid, ArrivalGrid] = lambertsolver.findDVSolutions( ...
                 date_dep, date_arr, dep_body_idx, arr_body_idx, range, step, central_body);
@@ -33,41 +25,26 @@ classdef lambertsolver
             v1LongCell,   v2LongCell] = ...
             findTransferSolutions(date_dep, date_arr, dep_body_idx, arr_body_idx, ...
                                     range, step, central_body)
-            % FINDTRANSFERSOLUTIONS
-            %   Generates a 2D "porkchop" of vInf & dv for short and long Lambert arcs
-            %   between two bodies, over departure & arrival date grids.
-            %
-            % Outputs:
-            %   vInfShortMat(iD,iA)   = departure v∞ magnitude for short arc
-            %   dvRendShortMat(iD,iA) = arrival dv  for short arc
-            %   vInfLongMat(iD,iA)    = departure v∞ magnitude for long arc
-            %   dvRendLongMat(iD,iA)  = arrival dv  for long arc
-            %   DepartureGrid, ArrivalGrid = the actual MJD2000 times used
-            %
-            %   v1ShortCell{iD,iA} = [vx, vy, vz] in heliocentric frame at departure (short arc)
-            %   v2ShortCell{iD,iA} = [vx, vy, vz] in heliocentric frame at arrival   (short arc)
-            %   v1LongCell{iD,iA},  v2LongCell{iD,iA} similarly for long arc
-            
-            % 1) Build the departure/arrival grids
+
             DepartureGrid = (date_dep - range) : step : (date_dep + range);
             ArrivalGrid   = (date_arr - range) : step : (date_arr + range);
         
             nDep = numel(DepartureGrid);
             nArr = numel(ArrivalGrid);
         
-            % 2) Initialize output arrays for vInf, dv
+            % Initialize output arrays for vInf, dv
             vInfShortMat   = NaN(nDep,nArr);
             dvRendShortMat = NaN(nDep,nArr);
             vInfLongMat    = NaN(nDep,nArr);
             dvRendLongMat  = NaN(nDep,nArr);
         
-            % 2b) Initialize cell arrays for the actual velocity vectors
+            % Initialize cell arrays for the actual velocity vectors
             v1ShortCell = cell(nDep, nArr);  % departure velocity (short arc)
             v2ShortCell = cell(nDep, nArr);  % arrival velocity   (short arc)
             v1LongCell  = cell(nDep, nArr);  % departure velocity (long arc)
             v2LongCell  = cell(nDep, nArr);  % arrival velocity   (long arc)
         
-            % 3) Precompute ephemerides for departure & arrival bodies
+            % Precompute ephemerides for departure & arrival bodies
             rDepList = zeros(nDep,3);  vDepList = zeros(nDep,3);
             rArrList = zeros(nArr,3);  vArrList = zeros(nArr,3);
         
@@ -80,7 +57,7 @@ classdef lambertsolver
         
             mu_central = getAstroConstants(central_body, 'mu');
         
-            % 4) Main parallel loop
+            % Main parallel loop
             parfor iD = 1:nDep
                 rDep = rDepList(iD,:);
                 vDep = vDepList(iD,:);
@@ -98,7 +75,7 @@ classdef lambertsolver
                     rArr = rArrList(iA,:);
                     vArr = vArrList(iA,:);
         
-                    % 4a) Lambert short arc
+                    % Lambert short arc
                     [v1_s, v2_s] = lambertsolver.lambertArcATD(rDep, rArr, TOF, +1, mu_central, 1e-3, 20);
                     if ~any(isnan(v1_s)) && ~any(isnan(v2_s))
                         % Record the heliocentric velocity vectors
@@ -110,7 +87,7 @@ classdef lambertsolver
                         dvRendShortMat(iD,iA) = norm(v2_s - vArr);  % arrival dv wrt target
                     end
         
-                    % 4b) Lambert long arc
+                    % Lambert long arc
                     [v1_l, v2_l] = lambertsolver.lambertArcATD(rDep, rArr, TOF, -1, mu_central, 1e-3, 20);
                     if ~any(isnan(v1_l)) && ~any(isnan(v2_l))
                         v1LongCell{iD, iA} = v1_l;
@@ -147,7 +124,7 @@ classdef lambertsolver
 
             mu_central = getAstroConstants(central_body, 'mu');
 
-            % Now parallelize outer loop
+            % parallelize outer loop
             parfor iD = 1:nDep
                 rDep = rDepList(iD,:);
                 vDep = vDepList(iD,:);
@@ -188,13 +165,13 @@ classdef lambertsolver
 
 
         function vrow = rowvec(v)
-            % rowvec - Ensures the output is a 1x3 row vector
+            % Ensures the output is a 1x3 row vector
             vrow = v(:).';  % Flatten to column, then transpose -> 1xN
         end
 
 
         function Phi = STMLambert(r, v, dt, mu)
-            % STMLambert - Compute the 3x3 STM for small changes 
+            % Compute the 3x3 STM for small changes 
             %   in initial velocity for Lambert arcs (row-vector version).
 
             r = lambertsolver.rowvec(r);
@@ -233,7 +210,7 @@ classdef lambertsolver
 
 
         function [rf, vf, dE] = fGKepler(r, v, dt, mu, tol)
-            % fGKepler - Universal f & g function to propagate from (r,v).
+            % Universal f & g function to propagate from (r,v).
 
             r = lambertsolver.rowvec(r);
             v = lambertsolver.rowvec(v);
@@ -287,7 +264,7 @@ classdef lambertsolver
 
 
         function [a_min, e_min, dt_min, v] = minETransfer(r1, r2, t_m, mu)
-            % minETransfer - Quick guess for minimal-energy transfer.
+            % Quick guess for minimal-energy transfer.
 
             c = norm(r2 - r1);
             r1_norm = norm(r1);
@@ -313,10 +290,10 @@ classdef lambertsolver
 
         function [v1, v2] = lambertArcATD(r1, r2, dt_target, tm, mu, tol, max_iter)
 
-            % 1) Get an initial guess from your minE solution:
+            % Get an initial guess from minE solution:
             [~, ~, ~, v1] = lambertsolver.minETransfer(r1, r2, tm, mu);
         
-            % 2) Newton iteration at dt_target
+            % Newton iteration at dt_target
             for iter = 1:max_iter
                 [r2_s, v2_s, ~] = lambertsolver.fGKepler(r1, v1, dt_target, mu, 1e-8);
                 if any(isnan(r2_s)),  v1 = NaN(1,3); v2 = NaN(1,3); return; end
